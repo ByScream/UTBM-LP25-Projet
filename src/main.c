@@ -27,18 +27,23 @@ int main(int argc, char *argv[]) {
         {.name="verbose",.has_arg=0,.flag=0,.val='v'},
 		{.name=0,.has_arg=0,.flag=0,.val=0}, // last element must be zero
 	};
+
+    int backup = 0, restore = 0, list_backups = 0;
 	while((opt = getopt_long(argc, argv, "v", my_opts, NULL)) != -1) {
 		switch (opt) {
 			case 'b':
 				printf("--backup\n");
+                int backup = 1;
 				break;
 				
 			case 'r':
 				printf("--restore\n");
+                int restore = 1;
 				break;
 				
 			case 'l':
 				printf("--list-backups\nNe s'utilise pas avec les options --restore et --backup\n");
+                int list_backups = 1;
 				break;
             case 'd':
 				printf("--dry-run\n");
@@ -66,6 +71,12 @@ int main(int argc, char *argv[]) {
 				break;
 		}
 	}
-    return EXIT_SUCCESS;
+    if (((backup == 1) && (restore == 1 || list_backups == 1)) || ((restore == 1) && (backup == 1 || list_backups == 1)) || ((list_backups == 1) && (restore == 1 || backup == 1))) {
+        perror("Vous devez n'avoir que l'un de ces 3 paramètres suivants: --backup, --restore, --list_backups.\nS'il y en a au moins deux, la commande est mal utilisée !\n");
+        return EXIT_FAILURE;
+    } else {
+        return EXIT_SUCCESS;
+    }
+    
 }
 
