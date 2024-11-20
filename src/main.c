@@ -33,17 +33,17 @@ int main(int argc, char *argv[]) {
 		switch (opt) {
 			case 'b':
 				printf("--backup\n");
-                int backup = 1;
+                backup = 1;
 				break;
 				
 			case 'r':
 				printf("--restore\n");
-                int restore = 1;
+                restore = 1;
 				break;
 				
 			case 'l':
 				printf("--list-backups\nNe s'utilise pas avec les options --restore et --backup\n");
-                int list_backups = 1;
+                list_backups = 1;
 				break;
             case 'd':
 				printf("--dry-run\n");
