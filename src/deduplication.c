@@ -63,6 +63,40 @@ void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table){
     *           chunks est le tableau de chunks initialisés qui contiendra les chunks issu du fichier
     *           hash_table est le tableau de hachage qui contient les MD5 et l'index des chunks unique
     */
+    
+    unsigned char buffer[CHUNK_SIZE];
+    unsigned char md5[MD5_DIGEST_LENGTH];
+    size_t bytes_read;
+    int chunk_index = 0;
+
+    // Initialiser la table de hachage avec des index vides (-1)
+    for (int i = 0; i < HASH_TABLE_SIZE; i++) {
+        hash_table[i].index = -1;
+    }
+
+    // Lecture du fichier par chunks
+    while ((bytes_read = fread(buffer, 1, CHUNK_SIZE, file)) > 0) {
+        // Calculer le MD5 pour le chunk courant
+        compute_md5(buffer, bytes_read, md5);
+
+        // Vérifier si le MD5 existe déjà dans la table de hachage
+        int existing_index = find_md5(hash_table, md5);
+        if (existing_index == -1) {
+            // Nouveau chunk unique : l'ajouter dans le tableau
+            chunks[chunk_index].data = malloc(bytes_read);
+            memcpy(chunks[chunk_index].data, buffer, bytes_read);
+            memcpy(chunks[chunk_index].md5, md5, MD5_DIGEST_LENGTH);
+
+            // Ajouter le MD5 dans la table de hachage
+            add_md5(hash_table, md5, chunk_index);
+        } else {
+            // Chunk déjà existant : réutiliser les données de l'index trouvé
+            chunks[chunk_index].data = NULL; // Pas besoin de stocker les données dupliquées
+            memcpy(chunks[chunk_index].md5, hash_table[existing_index].md5, MD5_DIGEST_LENGTH);
+        }
+
+        chunk_index++;
+    }
 }
 
 
