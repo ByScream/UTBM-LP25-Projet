@@ -107,4 +107,19 @@ void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count) {
     *           chunks représente le tableau de chunk qui contiendra les chunks restauré depuis filename
     *           chunk_count est un compteur du nombre de chunk restauré depuis le fichier filename
     */
+
+    for (int i = 0; i < chunk_count; i++) {
+        if (chunks[i].data != NULL) {
+            // Écrire les données du chunk unique dans le fichier
+            fwrite(chunks[i].data, 1, CHUNK_SIZE, file);
+        } else {
+            // Le chunk est un doublon, rechercher les données correspondantes
+            for (int j = 0; j < chunk_count; j++) {
+                if (memcmp(chunks[i].md5, chunks[j].md5, MD5_DIGEST_LENGTH) == 0 && chunks[j].data != NULL) {
+                    fwrite(chunks[j].data, 1, CHUNK_SIZE, file);
+                    break;
+                }
+            }
+        }
+    }
 }
