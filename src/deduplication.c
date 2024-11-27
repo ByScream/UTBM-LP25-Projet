@@ -36,16 +36,25 @@ int find_md5(Md5Entry *hash_table, unsigned char *md5) {
     // Recherche dans la table de hachage
     while (hash_table[hash_index].index != -1) {
         if (memcmp(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH) == 0) {
-            return hash_table[hash_index].index;  // Trouvé
+            return hash_table[hash_index].index; // Trouvé
         }
-        hash_index = (hash_index + 1) % HASH_TABLE_SIZE;  // Gestion des collisions
+        hash_index = (hash_index + 1) % HASH_TABLE_SIZE; // Gestion des collisions
     }
 
-    return -1;  // Non trouvé
+    return -1; // Non trouvé
 }
 
 // Ajouter un MD5 dans la table de hachage
 void add_md5(Md5Entry *hash_table, unsigned char *md5, int index) {
+    unsigned int hash_index = hash_md5(md5);
+
+    // Ajout dans la table de hachage (gestion des collisions)
+    while (hash_table[hash_index].index != -1) {
+        hash_index = (hash_index + 1) % HASH_TABLE_SIZE;
+    }
+
+    memcpy(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH);
+    hash_table[hash_index].index = index;
 }
 
 // Fonction pour convertir un fichier non dédupliqué en tableau de chunks
