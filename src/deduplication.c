@@ -18,6 +18,10 @@ unsigned int hash_md5(unsigned char *md5) {
 
 // Fonction pour calculer le MD5 d'un chunk
 void compute_md5(void *data, size_t len, unsigned char *md5_out) {
+    MD5_CTX md5_context;
+    MD5_Init(&md5_context);
+    MD5_Update(&md5_context, data, len);
+    MD5_Final(md5_out, &md5_context);
 }
 
 // Fonction permettant de chercher un MD5 dans la table de hachage
