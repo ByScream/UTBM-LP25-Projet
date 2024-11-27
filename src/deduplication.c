@@ -31,6 +31,17 @@ int find_md5(Md5Entry *hash_table, unsigned char *md5) {
     *  @return: retourne l'index s'il trouve le md5 dans le tableau et -1 sinon
     */
     
+    unsigned int hash_index = hash_md5(md5);
+
+    // Recherche dans la table de hachage
+    while (hash_table[hash_index].index != -1) {
+        if (memcmp(hash_table[hash_index].md5, md5, MD5_DIGEST_LENGTH) == 0) {
+            return hash_table[hash_index].index;  // Trouvé
+        }
+        hash_index = (hash_index + 1) % HASH_TABLE_SIZE;  // Gestion des collisions
+    }
+
+    return -1;  // Non trouvé
 }
 
 // Ajouter un MD5 dans la table de hachage
