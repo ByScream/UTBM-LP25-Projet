@@ -1,6 +1,8 @@
 #ifndef BACKUP_MANAGER_H
 #define BACKUP_MANAGER_H
 
+#define MAX_CHUNKS 262144
+
 #include "deduplication.h"
 #include "file_handler.h"
 #include <stdio.h>
