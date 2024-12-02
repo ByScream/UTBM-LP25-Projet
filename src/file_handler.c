@@ -6,7 +6,7 @@ void list_files(const char *path) {
     // Implémenter la logique pour lister les fichiers dans le répertoire donné
 }
 
-void read_file(const char *filepath) {
+char *read_file(const char *filepath, size_t *size) {
     // Ouvrir le fichier en mode lecture binaire
     FILE *file = fopen(filepath, "rb");
     if (file == NULL) {
