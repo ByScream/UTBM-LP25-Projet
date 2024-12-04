@@ -16,7 +16,8 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     *          backup_dir est le chemin vers le répertoire de sauvegarde
     */
 
-   // Vérifie si les répertoires source et de sauvegarde existent
+   
+    // Vérifie si les répertoires source et de sauvegarde existent
     if (access(source_dir, F_OK) != 0) {
         fprintf(stderr, "Le répertoire source n'existe pas : %s\n", source_dir);
         return;
@@ -42,77 +43,82 @@ void create_backup(const char *source_dir, const char *backup_dir) {
         return;
     }
 
-    // Chemin du fichier .backup_log
+
+    // ---------------------------------------------------------
+
+
+    DIR *dir = opendir(source_dir);
+    if (!dir) {
+        perror("Erreur lors de l'ouverture du répertoire source");
+        return;
+    }
+
     char log_path[PATH_MAX];
     snprintf(log_path, sizeof(log_path), "%s/.backup_log", backup_dir);
 
     // Vérifie si une sauvegarde précédente existe (log présent)
     int is_first_backup = (access(log_path, F_OK) != 0);
 
-    // Ouvre ou crée le fichier .backup_log
-    FILE *log_file = fopen(log_path, is_first_backup ? "w" : "a+");
-    if (!log_file) {
-        perror("Erreur lors de l'ouverture du fichier .backup_log");
-        return;
+    if(is_first_backup) { // si le fichier n'existe pas, on le crée
+        FILE *log_file = fopen(log_path, "w");
+        fclose(log_file);
     }
 
-    // Liste les fichiers du répertoire source
-    DIR *source = opendir(source_dir);
-    if (!source) {
-        perror("Erreur d'ouverture du répertoire source");
-        fclose(log_file);
-        return;
-    }
+    log_t logs = read_backup_log(log_path);
 
     struct dirent *entry;
-    while ((entry = readdir(source)) != NULL) {
-        // Ignore les fichiers spéciaux "." et ".."
-        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) {
-            continue;
-        }
+    while ((entry = readdir(dir)) != NULL) { // on parcours tout ce qu'il y a dans le directory
+        if (entry->d_name[0] == '.') continue; // on ignore les fichiers en ".*"
 
-        char source_path[PATH_MAX];
-        char backup_path[PATH_MAX];
-        snprintf(source_path, sizeof(source_path), "%s/%s", source_dir, entry->d_name);
-        snprintf(backup_path, sizeof(backup_path), "%s/%s", new_backup_path, entry->d_name);
+        char src_path[PATH_MAX];
+        snprintf(src_path, sizeof(src_path), "%s/%s", source_dir, entry->d_name);
 
         struct stat file_stat;
-        if (stat(source_path, &file_stat) != 0) {
-            perror("Erreur lors de l'obtention des informations du fichier");
+        if (stat(src_path, &file_stat) != 0) {
+            perror("Erreur lors de la récupération des informations du fichier");
             continue;
         }
 
-        // Si c'est un fichier, effectuer la sauvegarde avec déduplication
-        if (S_ISREG(file_stat.st_mode)) {
-            FILE *src_file = fopen(source_path, "rb");
-            if (!src_file) {
-                perror("Erreur lors de l'ouverture du fichier source");
-                continue;
+        // Vérifier si une sauvegarde est nécessaire
+        unsigned char md5[MD5_DIGEST_LENGTH];
+        calculate_file_md5(src_path, md5);
+
+        log_element *existing_log = NULL;
+        for (log_element *cur = logs.head; cur; cur = cur->next) {
+            if (strcmp(cur->path, src_path) == 0 && memcmp(cur->md5, md5, MD5_DIGEST_LENGTH) == 0) {
+                existing_log = cur;
+                break;
             }
-
-            // Préparer les structures pour la déduplication
-            Chunk chunks[MAX_CHUNKS];
-            Md5Entry hash_table[HASH_TABLE_SIZE];
-
-            // Effectuer la déduplication
-            deduplicate_file(src_file, chunks, hash_table);
-
-            // Écrire les chunks dédupliqués dans le fichier de sauvegarde
-            write_backup_file(backup_path, chunks, MAX_CHUNKS);
-
-            // Écrire les informations dans .backup_log
-            fprintf(log_file, "%s;%ld;%s\n", backup_path, file_stat.st_mtime, chunks[0].md5); // /!\ Question de design ici : le hash de tout le fichier ? ou le hash de chaque chunk ? (-> créer une boucle)
-            fclose(src_file);
         }
 
-        // Si c'est un répertoire, le recréer dans la sauvegarde
-        else if (S_ISDIR(file_stat.st_mode)) {
-            mkdir(backup_path, 0755);
+        if (!existing_log) {
+            // Sauvegarde le fichier
+            backup_file(src_path);
+
+            char dest_path[PATH_MAX];
+            snprintf(dest_path, sizeof(dest_path), "%s/%s.dat", backup_dir, entry->d_name);
+
+            Chunk chunks[MAX_CHUNK];
+            Md5Entry hash_table[HASH_TABLE_SIZE];
+            deduplicate_file(fopen(src_path, "rb"), chunks, hash_table);
+
+            // VERIFIER ce que fait vraiment cette fonction : write_backup_file(dest_path, chunks, MAX_CHUNK);
+
+            // Ajouter le nouveau fichier au log
+            log_element *new_log = malloc(sizeof(log_element));
+            new_log->path = strdup(src_path);
+            memcpy(new_log->md5, md5, MD5_DIGEST_LENGTH);
+            asprintf(&new_log->date, "%ld", file_stat.st_mtime);
+            new_log->next = NULL;
+            new_log->prev = logs.tail;
+            if (logs.tail) logs.tail->next = new_log;
+            else logs.head = new_log;
+            logs.tail = new_log;
         }
     }
 
-    closedir(source);
-    fclose(log_file);
+    update_backup_log(log_path, &logs);
+    closedir(dir);
 }
 
 // Fonction permettant d'enregistrer dans fichier le tableau de chunk dédupliqué

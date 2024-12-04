@@ -42,4 +42,3 @@ void deduplicate_file(FILE *file, Chunk *chunks, Md5Entry *hash_table);
 void undeduplicate_file(FILE *file, Chunk **chunks, int *chunk_count);
 
 #endif // DEDUPLICATION_H
-
