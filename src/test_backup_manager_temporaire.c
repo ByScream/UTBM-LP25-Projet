@@ -45,12 +45,6 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     // ---------------------------------------------------------
 
 
-    DIR *dir = opendir(source_dir);
-    if (!dir) {
-        perror("Erreur lors de l'ouverture du répertoire source");
-        return;
-    }
-
     char log_path[PATH_MAX];
     snprintf(log_path, sizeof(log_path), "%s/.backup_log", backup_dir);
 
@@ -64,60 +58,9 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
     log_t logs = read_backup_log(log_path);
 
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL) { // on parcours tout ce qu'il y a dans le directory
-        if (entry->d_name[0] == '.') continue; // on ignore les fichiers en ".*"
-
-        char src_path[PATH_MAX];
-        snprintf(src_path, sizeof(src_path), "%s/%s", source_dir, entry->d_name);
-
-        struct stat file_stat;
-        if (stat(src_path, &file_stat) != 0) {
-            perror("Erreur lors de la récupération des informations du fichier");
-            continue;
-        }
-
-        // Vérifier si une sauvegarde est nécessaire
-        unsigned char md5[MD5_DIGEST_LENGTH];
-        if(calculate_file_md5(src_path, md5) == -1)
-        {
-            printf("erreur calcul md5 fichier %s", src_path);
-            return;
-        }
-
-        log_element *existing_log = NULL;
-        for (log_element *cur = logs.head; cur; cur = cur->next) {
-            if (strcmp(cur->path, src_path) == 0 && memcmp(cur->md5, md5, MD5_DIGEST_LENGTH) == 0) {
-                existing_log = cur;
-                break;
-            }
-        }
-
-        if (!existing_log) {
-
-            char dest_path[PATH_MAX];
-            snprintf(dest_path, sizeof(dest_path), "%s/%s", backup_dir, entry->d_name);
-
-            // Sauvegarde le fichier
-            backup_file(src_path, dest_path);
-
-            // Ajouter le nouveau fichier au log
-            log_element *new_log = malloc(sizeof(log_element));
-            new_log->path = strdup(src_path);
-            memcpy(new_log->md5, md5, MD5_DIGEST_LENGTH);
-            asprintf(&new_log->date, "%ld", file_stat.st_mtime);
-            new_log->next = NULL;
-            new_log->prev = logs.tail;
-            if (logs.tail) logs.tail->next = new_log;
-            else logs.head = new_log;
-            logs.tail = new_log;
-        }
-
-        // AJOUTER aux logs le fait que le fichier n'a pas été modifié (faut quand même une entrée dans le .backup_log)
-    }
+    traiter_un_dossier(dir, new_backup_path, logs); // traite le dossier de façon récursive
 
     update_backup_log(log_path, &logs);
-    closedir(dir);
 }
 
 
@@ -146,8 +89,6 @@ void backup_file(const char *filename_src, const char *filename_output) {
 
     fclose(file);
 }
-
-
 
 void save_deduplicated_file(const char *filename_output, FILE *source, Chunk *chunks, int chunk_count) {
     FILE *output = fopen(filename_output, "wb");
@@ -316,3 +257,152 @@ int calculate_file_md5(const char *src_path, char *md5) {
     md5[32] = '\0'; // Assurer la terminaison de la chaîne
     return 0;
 }
+
+// Fonction pour ajouter un élément à une liste log_t
+void add_log_element(log_t *logs, const char *path, const unsigned char *md5, const char *date) {
+    if (!logs || !path || !md5 || !date) {
+        fprintf(stderr, "Erreur : paramètres invalides dans add_log_element.\n");
+        return;
+    }
+
+    // Allouer un nouvel élément
+    log_element *new_element = malloc(sizeof(log_element));
+    if (!new_element) {
+        perror("Erreur d'allocation mémoire pour log_element");
+        return;
+    }
+
+    // Initialiser les champs
+    new_element->path = strdup(path); // Copier le chemin
+    if (!new_element->path) {
+        perror("Erreur d'allocation mémoire pour path");
+        free(new_element);
+        return;
+    }
+    memcpy(new_element->md5, md5, MD5_DIGEST_LENGTH); // Copier le MD5
+    new_element->date = strdup(date); // Copier la date
+    if (!new_element->date) {
+        perror("Erreur d'allocation mémoire pour date");
+        free(new_element->path);
+        free(new_element);
+        return;
+    }
+    new_element->next = NULL;
+    new_element->prev = logs->tail; // Connecter au dernier élément existant
+
+    // Ajouter le nouvel élément à la liste
+    if (logs->tail) {
+        logs->tail->next = new_element; // Relier l'ancien dernier élément au nouveau
+    } else {
+        logs->head = new_element; // Si la liste était vide, définir le head
+    }
+    logs->tail = new_element; // Mettre à jour la queue
+}
+
+int create_directories(const char *path) {
+    char temp[PATH_MAX];
+    strncpy(temp, path, sizeof(temp));
+    temp[sizeof(temp) - 1] = '\0';
+
+    // Parcourir le chemin et créer chaque répertoire
+    for (char *p = temp + 1; *p; p++) {
+        if (*p == '/') {
+            *p = '\0'; // Temporarily terminate string
+            if (mkdir(temp, 0755) && errno != EEXIST) {
+                perror("Erreur lors de la création du répertoire");
+                return -1;
+            }
+            *p = '/'; // Restore the slash
+        }
+    }
+
+    // Créer le répertoire final si ce n'était pas déjà fait
+    if (mkdir(temp, 0755) && errno != EEXIST) {
+        perror("Erreur lors de la création du répertoire final");
+        return -1;
+    }
+
+    return 0;
+}
+
+void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *logs)
+{
+    DIR *dir = opendir(source_dir);
+    if (!dir) {
+        perror("Erreur lors de l'ouverture du répertoire source (%s)", source_dir);
+        return;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(dir)) != NULL) { // on parcours tout ce qu'il y a dans le directory
+
+        if (entry->d_name[0] == '.') continue; // on ignore les fichiers en ".*"
+
+        if (entry->d_type == DT_DIR) { // Si l'entrée est un dossier
+            // Construire le chemin du sous-dossier
+            char subdir_path[PATH_MAX];
+            snprintf(subdir_path, sizeof(subdir_path), "%s/%s", source_dir, entry->d_name);
+
+            char dest_path[PATH_MAX];
+            snprintf(dest_path, sizeof(dest_path), "%s/%s", backup_dir, entry->d_name);
+
+            // Ignorer les dossiers spéciaux "." et ".."
+            if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+
+            // Appeler récursivement la fonction sur le sous-dossier
+            traiter_un_dossier(subdir_path, dest_path, logs);
+        }
+
+        // on traire les fichiers
+
+        char src_path[PATH_MAX];
+        snprintf(src_path, sizeof(src_path), "%s/%s", source_dir, entry->d_name);
+
+        char dest_path[PATH_MAX];
+        snprintf(dest_path, sizeof(dest_path), "%s/%s", backup_dir, entry->d_name);
+
+        struct stat file_stat;
+        if (stat(src_path, &file_stat) != 0) {
+            perror("Erreur lors de la récupération des informations du fichier");
+            continue;
+        }
+
+        // Vérifier si une sauvegarde est nécessaire
+        unsigned char md5[MD5_DIGEST_LENGTH];
+        if(calculate_file_md5(src_path, md5) == -1)
+        {
+            printf("erreur calcul md5 fichier %s", src_path);
+            return;
+        }
+
+        log_element *existing_log = NULL;
+        for (log_element *cur = logs.head; cur; cur = cur->next) {
+            if (memcmp(cur->md5, md5, MD5_DIGEST_LENGTH) == 0) {
+                existing_log = cur;
+                break;
+            }
+        }
+
+        if (!existing_log) { // si c'est un nouveau fichier ou un fichier modifié
+            create_directories(dest_path); // on créé les dossiers nécessaires
+            backup_file(src_path, dest_path); // Sauvegarde le fichier
+        }
+
+        // Ajouter le fichier au log
+        add_log_element(logs, dest_path, md5, file_stat.st_mtime);
+    }
+    closedir(dir);
+}
+
+
+/*
+(pour tester l'enregistrement d'un fichier dédupliqué)
+utiliser restore_file("blalba.txt", "fichier_original.txt"); pour vérifier si c'est bon
+
+int main() {
+    backup_file("test.txt", "blalba.txt");
+
+    return 0;
+}
+
+*/
