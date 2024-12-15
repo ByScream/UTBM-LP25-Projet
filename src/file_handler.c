@@ -55,8 +55,8 @@ log_t read_backup_log(const char *logfile){
 
         // Parse line: path|md5|date
         char *path = strtok(line, "|");
-        char *md5_token = strtok(NULL, "|");
-        char *date = strtok(NULL, "\n");
+        char *date = strtok(NULL, "|");
+        char *md5_token = strtok(NULL, "\n");
 
         if (path && md5_token && date) {
             // Copie du chemin
@@ -147,8 +147,8 @@ void update_backup_log(const char *logfile, log_t *logs){
         // Écrire l'élément dans le fichier
         fprintf(file, "%s|%s|%s\n",
                 element_courant->path,   // Chemin du fichier
-                md5_chaine,              // Hash MD5
-                element_courant->date    // Date
+                element_courant->date,              // Hash MD5
+                md5_chaine                                      // Date
         );
 
         // Passer à l'élément suivant

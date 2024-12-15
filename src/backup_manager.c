@@ -11,6 +11,7 @@
 #include <errno.h>
 #include <sys/time.h>
 #include <openssl/evp.h>
+#include <regex.h>
 
 
 // Fonction pour restaurer une backup dans un dossier. Exemple : restore_backup("blabl/truc/2024-12-10-12:30:00.000", "bidule/ma_restauration/");
@@ -42,17 +43,28 @@ void restore_backup(const char *backup_dir, const char *restore_dir) {
         return;
     }
 
-    printf("Vérifications réussies. Prêt à restaurer depuis '%s' vers '%s'.\n", backup_dir, restore_dir);
-
+    printf("Prêt à restaurer depuis '%s' vers '%s'.\n", backup_dir, restore_dir);
+    printf("Chemin d'acces vers .backup_log : %s\n", backup_log_path);
 
     char date[24];
     get_backup_date(backup_dir, date, sizeof(date));
     log_t logs = read_backup_log(backup_log_path);
 
+    printf("On souhaite restaurer la date : <%s>\n", date);
+
+
+    char prefix[50];
+
 
     for (log_element *cur = logs.head; cur; cur = cur->next) {
-        if (memcmp(cur->date, date, sizeof(date)) == 0) {
+
+        extract_prefix(cur->path, prefix);
+        //printf("Entree : %s", prefix);
+        //printf(" <=> %s\n", date);
+
+        if (memcmp(prefix, date, sizeof(date)) == 0) {
             // Il faut restaurer le fichier correspondant
+            printf("Une entree trouvee\n");
             traiter_restauration_fichier(cur, restore_dir, logs);
         }
     }
@@ -98,10 +110,31 @@ const char *find_oldest_backup(log_t logs, const char *file_path, const char *ta
     const char *oldest_date = NULL;
 
     for (log_element *cur = logs.head; cur; cur = cur->next) {
+
+        char prefix_cur[PATH_MAX];
+        remove_prefix_by_datetime_removing_date(cur->path, prefix_cur);
+
+        char prefix_file_path[PATH_MAX];
+        remove_prefix_by_datetime_removing_date(file_path, prefix_file_path);
+
         // Vérifier le chemin d'accès
-        if (strcmp(cur->path, file_path) == 0) {
+        printf("On compare : [%s] et [%s]\n", prefix_cur, prefix_file_path);
+        if (strcmp(prefix_cur, prefix_file_path) == 0) {
+
+            printf("\tles chemins correspondent !\n");
             // Vérifier que la date est antérieure à la date cible
-            if (compare_dates(cur->date, target_date) < 0) {
+
+
+            char prefix_date[50];
+            extract_prefix(cur->path, prefix_date);
+
+            char prefix_date_file_path[50];
+            extract_prefix(file_path, prefix_date_file_path);
+
+            printf("\tOn compare : [%s] et [%s]\n", prefix_date, prefix_date_file_path);
+
+            if (compare_dates(prefix_date, prefix_date_file_path) < 0) {
+                printf("\t\tles dates sont bonnes!\n");
                 // Vérifier que les MD5 correspondent
                 if (compare_md5(cur->md5, target_md5)) {
                     // Si aucun fichier n'est encore sélectionné ou si la date actuelle est plus ancienne
@@ -143,6 +176,8 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     char new_backup_path[PATH_MAX];
     snprintf(new_backup_path, sizeof(new_backup_path), "%s/%s", backup_dir, timestamp);
 
+    //printf("chemin : %s\n", new_backup_path);
+
     // Création du répertoire de sauvegarde
     if (mkdir(new_backup_path, 0755) != 0) {
         perror("Erreur lors de la création du répertoire de sauvegarde");
@@ -166,7 +201,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
     log_t logs = read_backup_log(log_path);
 
-    traiter_un_dossier(source_dir, new_backup_path, logs); // traite le dossier de façon récursive
+    traiter_un_dossier(source_dir, new_backup_path, &logs); // traite le dossier de façon récursive
 
     update_backup_log(log_path, &logs);
 }
@@ -469,6 +504,8 @@ void add_log_element(log_t *logs, const char *path, const unsigned char *md5, co
         logs->head = new_element; // Si la liste était vide, définir le head
     }
     logs->tail = new_element; // Mettre à jour la queue
+
+    printf("Ajout du %s\n", new_element->path);
 }
 
 int create_directories(const char *path) {
@@ -507,7 +544,7 @@ int create_directories(const char *path) {
     return 0;
 }
 
-void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t logs)
+void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *logs)
 {
     DIR *dir = opendir(source_dir);
     if (!dir) {
@@ -536,7 +573,7 @@ void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t lo
             traiter_un_dossier(subdir_path, dest_path, logs);
         }
 
-        // on traire les fichiers
+        // on traite les fichiers
 
         char src_path[PATH_MAX];
         snprintf(src_path, sizeof(src_path), "%s/%s", source_dir, entry->d_name);
@@ -559,7 +596,7 @@ void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t lo
         }
 
         log_element *existing_log = NULL;
-        for (log_element *cur = logs.head; cur; cur = cur->next) {
+        for (log_element *cur = logs->head; cur; cur = cur->next) {
             if (memcmp(cur->md5, md5, MD5_DIGEST_LENGTH) == 0) {
                 existing_log = cur;
                 break;
@@ -577,7 +614,10 @@ void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t lo
         struct tm *time_info = localtime(&file_stat.st_mtime);
         strftime(mtime_str, sizeof(mtime_str), "%Y-%m-%d %H:%M:%S", time_info);
 
-        add_log_element(&logs, dest_path, md5, mtime_str);
+        char chemin_pour_log[PATH_MAX];
+        remove_prefix_by_datetime(dest_path, chemin_pour_log);
+
+        add_log_element(logs, chemin_pour_log, md5, mtime_str);
     }
     closedir(dir);
 }
@@ -743,6 +783,60 @@ void print_hash_table(Md5Entry *hash_table) {
     }
 }
 
+
+void remove_prefix_by_datetime(const char *input_path, char *output_path) {
+    // Expression régulière pour rechercher un dossier au format YYYY-MM-DD-HH:MM:SS
+    const char *pattern = "/[0-9]{4}-[0-9]{2}-[0-9]{2}-[0-9]{2}:[0-9]{2}:[0-9]{2}";
+
+    regex_t regex;
+    regmatch_t matches[1];
+
+    // Compiler l'expression régulière
+    if (regcomp(&regex, pattern, REG_EXTENDED)) {
+        fprintf(stderr, "Erreur de compilation de l'expression régulière\n");
+        return;
+    }
+
+    // Trouver la correspondance dans le chemin
+    if (regexec(&regex, input_path, 1, matches, 0) == 0) {
+        // Extraire la partie du chemin après la correspondance
+        strncpy(output_path, input_path + matches[0].rm_so + 1, strlen(input_path) - matches[0].rm_so); // +1 pour ignorer le '/'
+    } else {
+        // Si aucun motif trouvé, renvoyer le chemin complet
+        strcpy(output_path, input_path);
+    }
+
+    // Libérer la mémoire allouée pour l'expression régulière
+    regfree(&regex);
+}
+
+void remove_prefix_by_datetime_removing_date(const char *input_path, char *output_path) {
+    // Trouver la position du premier '/'
+    const char *slash_pos = strchr(input_path, '/');
+    if (slash_pos) {
+        // Copier tout après le '/'
+        strcpy(output_path, slash_pos + 1);
+    } else {
+        // Si aucun '/' n'est trouvé, juste copier toute la chaîne
+        strcpy(output_path, input_path);
+    }
+}
+
+
+void extract_prefix(const char *line, char *prefix) {
+    // Trouver la position du premier '/'
+    const char *slash_pos = strchr(line, '/');
+    if (slash_pos) {
+        // Copier la partie avant le '/'
+        size_t prefix_length = slash_pos - line;
+        strncpy(prefix, line, prefix_length);
+        prefix[prefix_length] = '\0'; // Terminer la chaîne avec un '\0'
+    } else {
+        // Si aucun '/' trouvé, on copie toute la ligne
+        strcpy(prefix, line);
+    }
+}
+
 /*
 
 POUR tester l'enregistrement et restauration d'1 fichier :
@@ -752,5 +846,13 @@ POUR tester l'enregistrement et restauration d'1 fichier :
     printf("Restauration...\n");
     restore_file("blalba.txt", "fichier_original.txt");
     read_binary_file("blalba.txt");
+
+
+int main() {
+    
+    //create_backup("/media/sf_fichiers_partages_windows_linux/src/a_sauvegarder/test", "/home/elias/Documents/sav");
+    //restore_backup("/home/elias/Documents/sav/2024-12-15-15:55:11", "/home/elias/Documents/restaurer");
+    return 0;
+}
 
 */

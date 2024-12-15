@@ -47,7 +47,7 @@ void add_log_element(log_t *logs, const char *path, const unsigned char *md5, co
 int create_directories(const char *path);
 
 // Fonction qui parcours récusirvement le dossier pour en effectuer la sauvegarde
-void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t logs);
+void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *logs);
 
 // Fonction pour récupérer la date d'une sauvegarde à partir de son chemin d'accès
 void get_backup_date(const char *backup_dir, char *date, size_t date_size);
@@ -66,5 +66,8 @@ void print_hash_table(Md5Entry *hash_table);
 void print_chunk_content(Chunk *chunks, int chunk_count, Md5Entry *hash_table);
 void read_binary_file(const char *filename);
 
+void remove_prefix_by_datetime(const char *input_path, char *output_path); // (utile pour le fichier .backup_log)
+void extract_prefix(const char *line, char *prefix);
+void remove_prefix_by_datetime_removing_date(const char *input_path, char *output_path);
 
 #endif // BACKUP_MANAGER_H
