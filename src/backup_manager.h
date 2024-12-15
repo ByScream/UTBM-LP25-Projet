@@ -38,7 +38,7 @@ void undeduplicate_fileV2(FILE *file, Chunk **chunks, int *chunk_count);
 void restore_file(const char *deduplicated_filename, const char *output_filename);
 
 // Fonction pour calculer le md5 d'un fichier
-int calculate_file_md5(const char *src_path, char *md5);
+int calculate_file_md5(const char *src_path, unsigned char *md5_hash);
 
 // Fonction pour ajouter un élément à une liste log_t
 void add_log_element(log_t *logs, const char *path, const unsigned char *md5, const char *date);
@@ -47,7 +47,7 @@ void add_log_element(log_t *logs, const char *path, const unsigned char *md5, co
 int create_directories(const char *path);
 
 // Fonction qui parcours récusirvement le dossier pour en effectuer la sauvegarde
-void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *logs);
+void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t logs);
 
 // Fonction pour récupérer la date d'une sauvegarde à partir de son chemin d'accès
 void get_backup_date(const char *backup_dir, char *date, size_t date_size);
@@ -61,5 +61,10 @@ int compare_md5(const unsigned char *md5_1, const unsigned char *md5_2);
 
 int directory_exists(const char *path);
 int file_exists(const char *path);
+
+void print_hash_table(Md5Entry *hash_table);
+void print_chunk_content(Chunk *chunks, int chunk_count, Md5Entry *hash_table);
+void read_binary_file(const char *filename);
+
 
 #endif // BACKUP_MANAGER_H
