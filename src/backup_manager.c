@@ -13,6 +13,23 @@
 #include <openssl/evp.h>
 #include <regex.h>
 
+void get_base_path(const char *full_path, char *base_path) {
+    // Trouver le dernier slash
+    const char *last_slash = strrchr(full_path, '/');
+
+    if (last_slash != NULL) {
+        // Calculer la longueur jusqu'au dernier slash
+        size_t base_length = last_slash - full_path + 1;
+
+        // Copier la partie avant le dernier slash
+        strncpy(base_path, full_path, base_length);
+        base_path[base_length] = '\0'; // Terminer avec un '\0'
+    } else {
+        // Si aucun slash trouvé, retourner une chaîne vide
+        base_path[0] = '\0';
+    }
+}
+
 
 // Fonction pour restaurer une backup dans un dossier. Exemple : restore_backup("blabl/truc/2024-12-10-12:30:00.000", "bidule/ma_restauration/");
 void restore_backup(const char *backup_dir, const char *restore_dir) {
@@ -65,12 +82,12 @@ void restore_backup(const char *backup_dir, const char *restore_dir) {
         if (memcmp(prefix, date, sizeof(date)) == 0) {
             // Il faut restaurer le fichier correspondant
             printf("Une entree trouvee\n");
-            traiter_restauration_fichier(cur, restore_dir, logs);
+            traiter_restauration_fichier(cur, restore_dir, logs, backup_dir);
         }
     }
 }
 
-void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log_t logs) {
+void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log_t logs, const char *backup_dir) {
     char src_path[PATH_MAX];
     strncpy(src_path, cur->path, sizeof(src_path));
     src_path[sizeof(src_path) - 1] = '\0'; // Sécurisation de la chaîne
@@ -101,7 +118,13 @@ void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log
     create_directories(output_path);
 
     // Restaurer le fichier
-    restore_file(src_path, output_path);
+    char base_path[PATH_MAX];
+    char full_path[PATH_MAX];
+
+    get_base_path(backup_dir, base_path);
+    assemble_path(base_path, src_path, full_path);
+
+    restore_file(full_path, output_path);
 }
 
 // Fonction principale pour trouver un fichier spécifique (date antérieure et md5 identique), avec l'entrée la plus ancienne respectant les critères
@@ -834,6 +857,19 @@ void extract_prefix(const char *line, char *prefix) {
     } else {
         // Si aucun '/' trouvé, on copie toute la ligne
         strcpy(prefix, line);
+    }
+}
+
+void assemble_path(const char *backup_dir, const char *src_path, char *output) {
+    // Vérifier si backup_dir se termine par un '/'
+    size_t backup_len = strlen(backup_dir);
+    int needs_separator = (backup_dir[backup_len - 1] != '/');
+
+    // Construire le chemin final
+    if (needs_separator) {
+        snprintf(output, PATH_MAX, "%s/%s", backup_dir, src_path);
+    } else {
+        snprintf(output, PATH_MAX, "%s%s", backup_dir, src_path);
     }
 }
 

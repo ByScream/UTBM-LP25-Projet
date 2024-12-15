@@ -18,7 +18,7 @@ void list_backups(const char *backup_dir);
 void restore_backup(const char *backup_dir, const char *restore_dir);
 
 // Fonction pour gérer la restauration d'un fichier dédupliqué
-void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log_t logs);
+void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log_t logs, const char *backup_dir);
 
 // Fonction principale pour trouver un fichier spécifique (date antérieure et md5 identique), avec l'entrée la plus ancienne respectant les critères
 const char *find_oldest_backup(log_t logs, const char *file_path, const char *target_date, const unsigned char *target_md5);
@@ -69,5 +69,7 @@ void read_binary_file(const char *filename);
 void remove_prefix_by_datetime(const char *input_path, char *output_path); // (utile pour le fichier .backup_log)
 void extract_prefix(const char *line, char *prefix);
 void remove_prefix_by_datetime_removing_date(const char *input_path, char *output_path);
+
+void assemble_path(const char *backup_dir, const char *src_path, char *output);
 
 #endif // BACKUP_MANAGER_H
