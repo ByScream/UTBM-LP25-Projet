@@ -83,7 +83,8 @@ int main(int argc, char *argv[]) {
                 }
 				break;
             case 'v':
-				printf("--verbose ou -v\n");
+				printf("Mode verbose activé !\n");
+				verbose = 1;
 				break;
 		}
 	}
@@ -99,7 +100,7 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "Erreur : vous devez définir l'argument --dest !\n");
                 exit(EXIT_FAILURE);
 			} else {
-				create_backup(source,dest);
+				create_backup(source,dest,verbose);
 			}
 		} else if (restore) {
 			if (strlen(source) == 0) {

@@ -24,7 +24,7 @@ void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log
 const char *find_oldest_backup(log_t logs, const char *file_path, const char *target_date, const unsigned char *target_md5);
 
 // Fonction pour créer un nouveau backup incrémental
-void create_backup(const char *source_dir, const char *backup_dir);
+void create_backup(const char *source_dir, const char *backup_dir, const int verbose);
 
 // Fonction implémentant la logique pour la sauvegarde d'un fichier en le dédupliquant
 void backup_file(const char *filename_src, const char *filename_output);
@@ -47,7 +47,7 @@ void add_log_element(log_t *logs, const char *path, const unsigned char *md5, co
 int create_directories(const char *path);
 
 // Fonction qui parcours récusirvement le dossier pour en effectuer la sauvegarde
-void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *logs);
+void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *logs, const int verbose);
 
 // Fonction pour récupérer la date d'une sauvegarde à partir de son chemin d'accès
 void get_backup_date(const char *backup_dir, char *date, size_t date_size);

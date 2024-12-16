@@ -173,7 +173,7 @@ const char *find_oldest_backup(log_t logs, const char *file_path, const char *ta
     return oldest_path; // Retourne le chemin du fichier le plus ancien trouvé ou NULL si aucun ne correspond
 }
 
-void create_backup(const char *source_dir, const char *backup_dir) {
+void create_backup(const char *source_dir, const char *backup_dir, const int verbose) {
     /* @param: source_dir est le chemin vers le répertoire à sauvegarder
     *          backup_dir est le chemin vers le répertoire de sauvegarde
     */
@@ -199,7 +199,10 @@ void create_backup(const char *source_dir, const char *backup_dir) {
     char new_backup_path[PATH_MAX];
     snprintf(new_backup_path, sizeof(new_backup_path), "%s/%s", backup_dir, timestamp);
 
-    //printf("chemin : %s\n", new_backup_path);
+    if (verbose) {
+        printf("chemin : %s\n", new_backup_path);
+    }
+    
 
     // Création du répertoire de sauvegarde
     if (mkdir(new_backup_path, 0755) != 0) {
@@ -224,7 +227,7 @@ void create_backup(const char *source_dir, const char *backup_dir) {
 
     log_t logs = read_backup_log(log_path);
 
-    traiter_un_dossier(source_dir, new_backup_path, &logs); // traite le dossier de façon récursive
+    traiter_un_dossier(source_dir, new_backup_path, &logs, verbose); // traite le dossier de façon récursive
 
     update_backup_log(log_path, &logs);
 }
@@ -567,7 +570,7 @@ int create_directories(const char *path) {
     return 0;
 }
 
-void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *logs)
+void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *logs, const int verbose)
 {
     DIR *dir = opendir(source_dir);
     if (!dir) {
@@ -593,7 +596,7 @@ void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *l
             if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
 
             // Appeler récursivement la fonction sur le sous-dossier
-            traiter_un_dossier(subdir_path, dest_path, logs);
+            traiter_un_dossier(subdir_path, dest_path, logs, verbose);
         }
 
         // on traite les fichiers
