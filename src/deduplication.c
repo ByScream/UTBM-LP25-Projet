@@ -106,7 +106,14 @@ Chunk* deduplicate_file(FILE *file, Md5Entry *hash_table, int *chunk_count) {
     unsigned char md5[MD5_DIGEST_LENGTH];
     size_t bytes_read;
 
-    while ((bytes_read = fread(buffer, 1, CHUNK_SIZE, file)) > 0) {
+    // fread(buffer, taille en octet d'une unité à lire, nombre d'unité à lire, stream)
+    bytes_read = fread(buffer, 1, CHUNK_SIZE, file); // bytes <=> octets
+    printf("Nombre de bytes lus : %ld => ", bytes_read);
+        printf("\t[%.*s]\n", (int)bytes_read, buffer);
+
+    // TRAITER LE CAS avec un nombre_de_bytes < Chunk_size ==> réglé par un calloc à la place d'un malloc
+
+    while (bytes_read > 0) {
         if (chunk_index >= capacity) {
             capacity *= 2;
             chunks = realloc(chunks, capacity * sizeof(Chunk));
@@ -124,7 +131,8 @@ Chunk* deduplicate_file(FILE *file, Md5Entry *hash_table, int *chunk_count) {
         //printf(" -> Index trouvé : %d\n\n", existing_index);
 
         if (existing_index == -1) {
-            chunks[chunk_index].data = malloc(bytes_read);
+            chunks[chunk_index].data = calloc(bytes_read, 1);
+            //chunks[chunk_index].data = malloc(bytes_read);
             memcpy(chunks[chunk_index].data, buffer, bytes_read);
             memcpy(chunks[chunk_index].md5, md5, MD5_DIGEST_LENGTH);
             add_md5(hash_table, md5, chunk_index);
@@ -137,6 +145,9 @@ Chunk* deduplicate_file(FILE *file, Md5Entry *hash_table, int *chunk_count) {
             //print_md5(chunks[existing_index].md5);
         }
 
+        bytes_read = fread(buffer, 1, CHUNK_SIZE, file);
+        printf("Nombre de bytes lus : %ld => ", bytes_read);
+        printf("\t[%.*s]\n", (int)bytes_read, buffer);
         chunk_index++;
     }
 

@@ -7,8 +7,8 @@
 #include <openssl/md5.h>
 #include <dirent.h>
 
-// Taille d'un chunk (4096 octets)
-#define CHUNK_SIZE 3
+// Taille d'un chunk (en octets)
+#define CHUNK_SIZE 7
 
 #define INITIAL_CHUNK_CAPACITY 100
 

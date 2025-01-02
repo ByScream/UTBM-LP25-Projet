@@ -234,7 +234,7 @@ void create_backup(const char *source_dir, const char *backup_dir, const int ver
 
 // Fonction implémentant la logique pour la sauvegarde d'un fichier
 void backup_file(const char *filename_src, const char *filename_output) {
-    //printf("entree dans le backup_file");
+    printf("entree dans le backup_file\n");
     FILE *file = fopen(filename_src, "rb");
     if (!file) {
         perror("Erreur d'ouverture du fichier source");
@@ -253,18 +253,18 @@ void backup_file(const char *filename_src, const char *filename_output) {
     }
 
 
-    //printf("On déduplique le fichier");
+    printf("On déduplique le fichier\n");
     Md5Entry hash_table[HASH_TABLE_SIZE];  // Table de hachage des MD5
 
     // dédupliquer le fichier
     int chunk_count = 0;
     Chunk *chunks = deduplicate_file(file, hash_table, &chunk_count);
 
-    //printf("Dans le backup_file\n");
-    //print_hash_table(hash_table);
+    printf("Dans le backup_file\n");
+    print_hash_table(hash_table);
 
-    //printf("\nIl y a %d Chunks\n",chunk_count);
-    //print_chunk_content(chunks, chunk_count, hash_table);
+    printf("\nIl y a %d Chunks\n",chunk_count);
+    print_chunk_content(chunks, chunk_count, hash_table);
 
     // on enregistre les chunks
     save_deduplicated_file(filename_output, file ,chunks, chunk_count);
@@ -274,6 +274,9 @@ void backup_file(const char *filename_src, const char *filename_output) {
 }
 
 void save_deduplicated_file(const char *filename_output, FILE *source, Chunk *chunks, int chunk_count) {
+
+    //printf("Entree dans save_deduplicated_file\n");
+
     FILE *output = fopen(filename_output, "wb");
     if (!output) {
         perror("Erreur lors de l'ouverture du fichier de sortie");
@@ -281,12 +284,14 @@ void save_deduplicated_file(const char *filename_output, FILE *source, Chunk *ch
     }
 
     for (int i = 0; i < chunk_count; i++) {
+        //printf("\tBoucle for : i=%d\n", i);
         if (chunks[i].data != NULL) {
             // Sauvegarde des chunks uniques
             size_t chunk_size = CHUNK_SIZE; // Taille par défaut du chunk
 
-            // Si c'est le dernier chunk ou un chunk isolé, calculer la taille réelle
-            if (i == chunk_count - 1 || chunks[i + 1].data == NULL) {
+            // Si c'est le dernier chunk [ou un chunk isolé, calculer la taille réelle   if (i == chunk_count - 1 || (i + 1 < chunk_count && chunks[i + 1].data == NULL))]
+            if (i == chunk_count - 1) {
+                printf("calcul de la taille reelle du chunk : ");
                 fseek(source, 0, SEEK_END); // Aller à la fin du fichier source
                 long file_size = ftell(source); // Taille totale du fichier
                 rewind(source); // Revenir au début pour ne pas perturber le fichier source
@@ -295,8 +300,28 @@ void save_deduplicated_file(const char *filename_output, FILE *source, Chunk *ch
                 if (chunk_size == 0) {
                     chunk_size = CHUNK_SIZE; // Si divisible parfaitement, garder CHUNK_SIZE
                 }
+
+                // affichage du chunk concerné
+                if (chunks[i].data != NULL) {
+                    // Supposer que les données sont des octets, afficher en hexadécimal
+                    for (int j = 0; j < CHUNK_SIZE; j++) {
+                        // Afficher les octets de données, et stopper dès qu'on atteint la fin des données du chunk
+                        if (j < CHUNK_SIZE && ((unsigned char*)chunks[i].data)[j] != '\0') {
+                            printf("%02x ", ((unsigned char*)chunks[i].data)[j]);
+                        } else {
+                            break;
+                        }
+                    }
+                } else {printf("[NULL]");}
+
+
+
+                printf(" | taille <%ld>\n", chunk_size);
             }
 
+            // CE N'EST PLUS UN PROBLEME : au niveau de l'écriture : tout le bloc n'est pas enregistré
+
+            // fwrite(buffer, blocSize, Nombre de bloc, stream);
             fwrite(&chunk_size, sizeof(size_t), 1, output); // Écrire la taille du chunk
             fwrite(chunks[i].data, 1, chunk_size, output); // Écrire les données du chunk
             fwrite(chunks[i].md5, 1, MD5_DIGEST_LENGTH, output); // Écrire le MD5
@@ -333,8 +358,11 @@ void undeduplicate_fileV2(FILE *file, Chunk **chunks, int *chunk_count) {
     size_t chunk_size;
     int index = 0;
 
+    //chunk_size = CHUNK_SIZE;
+
     // Allouer de la mémoire pour les chunks (1000 chunks maximum)
-    *chunks = malloc(INITIAL_CHUNK_CAPACITY * sizeof(Chunk)); 
+    *chunks = calloc(INITIAL_CHUNK_CAPACITY, sizeof(Chunk));
+    //*chunks = malloc(INITIAL_CHUNK_CAPACITY * sizeof(Chunk)); 
     if (!*chunks) {
         perror("Erreur d'allocation mémoire pour les chunks");
         return;
@@ -369,7 +397,8 @@ void undeduplicate_fileV2(FILE *file, Chunk **chunks, int *chunk_count) {
             // Cas d'un chunk unique
 
             // Allouer la mémoire pour le chunk
-            (*chunks)[index].data = malloc(chunk_size);
+            (*chunks)[index].data = calloc(chunk_size, 1);
+            //(*chunks)[index].data = malloc(chunk_size);
             if (!(*chunks)[index].data) {
                 perror("Erreur d'allocation mémoire pour un chunk");
                 break;
@@ -895,3 +924,14 @@ int main() {
 }
 
 */
+
+int main() {
+    
+    printf("Backup...\n");
+    backup_file("base.txt", "sauvegarde.txt");
+    printf("Restauration...\n");
+    restore_file("sauvegarde.txt", "fichier_original.txt");
+    read_binary_file("sauvegarde.txt");
+
+    return 0;
+}
