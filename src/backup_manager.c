@@ -907,15 +907,6 @@ void assemble_path(const char *backup_dir, const char *src_path, char *output) {
 
 /*
 
-POUR tester l'enregistrement et restauration d'1 fichier :
-
-    printf("Backup...\n");
-    backup_file("test.txt", "blalba.txt");
-    printf("Restauration...\n");
-    restore_file("blalba.txt", "fichier_original.txt");
-    read_binary_file("blalba.txt");
-
-
 int main() {
     
     //create_backup("/media/sf_fichiers_partages_windows_linux/src/a_sauvegarder/test", "/home/elias/Documents/sav");
@@ -924,6 +915,10 @@ int main() {
 }
 
 */
+
+/*
+
+POUR tester l'enregistrement et restauration d'1 fichier :
 
 int main() {
     
@@ -935,3 +930,5 @@ int main() {
 
     return 0;
 }
+
+*/
