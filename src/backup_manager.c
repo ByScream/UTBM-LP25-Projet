@@ -32,7 +32,7 @@ void get_base_path(const char *full_path, char *base_path) {
 
 
 // Fonction pour restaurer une backup dans un dossier. Exemple : restore_backup("blabl/truc/2024-12-10-12:30:00.000", "bidule/ma_restauration/");
-void restore_backup(const char *backup_dir, const char *restore_dir) {
+void restore_backup(const char *backup_dir, const char *restore_dir, const int verbose) {
     if (!directory_exists(backup_dir)) { // Vérifier l'existence de backup_dir
         fprintf(stderr, "Erreur : Le dossier de sauvegarde '%s' n'existe pas.\n", backup_dir);
         return;
@@ -60,15 +60,20 @@ void restore_backup(const char *backup_dir, const char *restore_dir) {
         return;
     }
 
-    printf("Prêt à restaurer depuis '%s' vers '%s'.\n", backup_dir, restore_dir);
-    printf("Chemin d'acces vers .backup_log : %s\n", backup_log_path);
+    if (verbose) {
+        printf("Prêt à restaurer depuis '%s' vers '%s'.\n", backup_dir, restore_dir);
+        printf("Chemin d'acces vers .backup_log : %s\n", backup_log_path);
+    }
+    
 
     char date[24];
     get_backup_date(backup_dir, date, sizeof(date));
     log_t logs = read_backup_log(backup_log_path);
 
-    printf("On souhaite restaurer la date : <%s>\n", date);
-
+    if (verbose) {
+        printf("On souhaite restaurer la date : <%s>\n", date);
+    }
+    
 
     char prefix[50];
 
@@ -76,25 +81,31 @@ void restore_backup(const char *backup_dir, const char *restore_dir) {
     for (log_element *cur = logs.head; cur; cur = cur->next) {
 
         extract_prefix(cur->path, prefix);
-        //printf("Entree : %s", prefix);
-        //printf(" <=> %s\n", date);
+        if (verbose) {
+            printf("Entree : %s", prefix);
+            printf(" <=> %s\n", date);
+        }
+        
 
         if (memcmp(prefix, date, sizeof(date)) == 0) {
             // Il faut restaurer le fichier correspondant
-            printf("Une entree trouvee\n");
-            traiter_restauration_fichier(cur, restore_dir, logs, backup_dir);
+            if (verbose) {
+                printf("Une entree trouvee\n");
+            }
+            
+            traiter_restauration_fichier(cur, restore_dir, logs, backup_dir, verbose);
         }
     }
 }
 
-void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log_t logs, const char *backup_dir) {
+void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log_t logs, const char *backup_dir, const int verbose) {
     char src_path[PATH_MAX];
     strncpy(src_path, cur->path, sizeof(src_path));
     src_path[sizeof(src_path) - 1] = '\0'; // Sécurisation de la chaîne
 
     // Si le fichier n'existe pas, trouver le chemin le plus ancien correspondant
     if (!file_exists(cur->path)) {
-        const char *result = find_oldest_backup(logs, cur->path, cur->date, cur->md5);
+        const char *result = find_oldest_backup(logs, cur->path, cur->date, cur->md5, verbose);
         if (result) {
             strncpy(src_path, result, sizeof(src_path));
             src_path[sizeof(src_path) - 1] = '\0'; // Sécurisation de la chaîne
@@ -115,7 +126,7 @@ void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log
     snprintf(output_path, sizeof(output_path), "%s%s", adjusted_restore_dir, cur->path);
 
     // Créer les répertoires nécessaires pour le chemin de destination
-    create_directories(output_path);
+    create_directories(output_path, verbose);
 
     // Restaurer le fichier
     char base_path[PATH_MAX];
@@ -124,11 +135,11 @@ void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log
     get_base_path(backup_dir, base_path);
     assemble_path(base_path, src_path, full_path);
 
-    restore_file(full_path, output_path);
+    restore_file(full_path, output_path, verbose);
 }
 
 // Fonction principale pour trouver un fichier spécifique (date antérieure et md5 identique), avec l'entrée la plus ancienne respectant les critères
-const char *find_oldest_backup(log_t logs, const char *file_path, const char *target_date, const unsigned char *target_md5) {
+const char *find_oldest_backup(log_t logs, const char *file_path, const char *target_date, const unsigned char *target_md5, const int verbose) {
     const char *oldest_path = NULL;
     const char *oldest_date = NULL;
 
@@ -141,10 +152,15 @@ const char *find_oldest_backup(log_t logs, const char *file_path, const char *ta
         remove_prefix_by_datetime_removing_date(file_path, prefix_file_path);
 
         // Vérifier le chemin d'accès
-        printf("On compare : [%s] et [%s]\n", prefix_cur, prefix_file_path);
+        if (verbose) {
+            printf("On compare : [%s] et [%s]\n", prefix_cur, prefix_file_path);
+        }
         if (strcmp(prefix_cur, prefix_file_path) == 0) {
 
-            printf("\tles chemins correspondent !\n");
+            if (verbose) {
+                printf("\tles chemins correspondent !\n");
+            }
+           
             // Vérifier que la date est antérieure à la date cible
 
 
@@ -154,10 +170,16 @@ const char *find_oldest_backup(log_t logs, const char *file_path, const char *ta
             char prefix_date_file_path[50];
             extract_prefix(file_path, prefix_date_file_path);
 
-            printf("\tOn compare : [%s] et [%s]\n", prefix_date, prefix_date_file_path);
+            if (verbose) {
+                printf("\tOn compare : [%s] et [%s]\n", prefix_date, prefix_date_file_path);
+            }
+            
 
             if (compare_dates(prefix_date, prefix_date_file_path) < 0) {
-                printf("\t\tles dates sont bonnes!\n");
+                if (verbose) {
+                    printf("\t\tles dates sont bonnes!\n");
+                }
+                
                 // Vérifier que les MD5 correspondent
                 if (compare_md5(cur->md5, target_md5)) {
                     // Si aucun fichier n'est encore sélectionné ou si la date actuelle est plus ancienne
@@ -233,8 +255,11 @@ void create_backup(const char *source_dir, const char *backup_dir, const int ver
 }
 
 // Fonction implémentant la logique pour la sauvegarde d'un fichier
-void backup_file(const char *filename_src, const char *filename_output) {
-    printf("entree dans le backup_file\n");
+void backup_file(const char *filename_src, const char *filename_output, const int verbose) {
+    if (verbose) {
+        printf("entree dans le backup_file\n");
+    }
+    
     FILE *file = fopen(filename_src, "rb");
     if (!file) {
         perror("Erreur d'ouverture du fichier source");
@@ -252,30 +277,37 @@ void backup_file(const char *filename_src, const char *filename_output) {
         return;
     }
 
-
-    printf("On déduplique le fichier\n");
+    if (verbose) {
+        printf("On déduplique le fichier\n");
+    }
+   
     Md5Entry hash_table[HASH_TABLE_SIZE];  // Table de hachage des MD5
 
     // dédupliquer le fichier
     int chunk_count = 0;
-    Chunk *chunks = deduplicate_file(file, hash_table, &chunk_count);
+    Chunk *chunks = deduplicate_file(file, hash_table, &chunk_count, verbose);
 
-    printf("Dans le backup_file\n");
-    print_hash_table(hash_table);
+    if (verbose ){
+        printf("Dans le backup_file\n");
+        print_hash_table(hash_table);
 
-    printf("\nIl y a %d Chunks\n",chunk_count);
-    print_chunk_content(chunks, chunk_count, hash_table);
+        printf("\nIl y a %d Chunks\n",chunk_count);
+        print_chunk_content(chunks, chunk_count, hash_table);
+    }
+    
 
     // on enregistre les chunks
-    save_deduplicated_file(filename_output, file ,chunks, chunk_count);
+    save_deduplicated_file(filename_output, file ,chunks, chunk_count, verbose);
 
     fclose(file);
     free(chunks);
 }
 
-void save_deduplicated_file(const char *filename_output, FILE *source, Chunk *chunks, int chunk_count) {
+void save_deduplicated_file(const char *filename_output, FILE *source, Chunk *chunks, int chunk_count, const int verbose) {
 
-    //printf("Entree dans save_deduplicated_file\n");
+    if (verbose) {
+        printf("Entree dans save_deduplicated_file\n");
+    }
 
     FILE *output = fopen(filename_output, "wb");
     if (!output) {
@@ -284,14 +316,20 @@ void save_deduplicated_file(const char *filename_output, FILE *source, Chunk *ch
     }
 
     for (int i = 0; i < chunk_count; i++) {
-        //printf("\tBoucle for : i=%d\n", i);
+        if (verbose) {
+            printf("\tBoucle for : i=%d\n", i);
+        }
+        
         if (chunks[i].data != NULL) {
             // Sauvegarde des chunks uniques
             size_t chunk_size = CHUNK_SIZE; // Taille par défaut du chunk
 
             // Si c'est le dernier chunk [ou un chunk isolé, calculer la taille réelle   if (i == chunk_count - 1 || (i + 1 < chunk_count && chunks[i + 1].data == NULL))]
             if (i == chunk_count - 1) {
-                printf("calcul de la taille reelle du chunk : ");
+                if (verbose) {
+                    printf("calcul de la taille reelle du chunk : ");
+                }
+                
                 fseek(source, 0, SEEK_END); // Aller à la fin du fichier source
                 long file_size = ftell(source); // Taille totale du fichier
                 rewind(source); // Revenir au début pour ne pas perturber le fichier source
@@ -307,16 +345,24 @@ void save_deduplicated_file(const char *filename_output, FILE *source, Chunk *ch
                     for (int j = 0; j < CHUNK_SIZE; j++) {
                         // Afficher les octets de données, et stopper dès qu'on atteint la fin des données du chunk
                         if (j < CHUNK_SIZE && ((unsigned char*)chunks[i].data)[j] != '\0') {
-                            printf("%02x ", ((unsigned char*)chunks[i].data)[j]);
+                            if (verbose) {
+                                printf("%02x ", ((unsigned char*)chunks[i].data)[j]);
+                            }
                         } else {
                             break;
                         }
                     }
-                } else {printf("[NULL]");}
+                } else {
+                    if (verbose) {
+                        printf("[NULL]");
+                    } 
+                }
 
 
-
-                printf(" | taille <%ld>\n", chunk_size);
+                if (verbose) {
+                    printf(" | taille <%ld>\n", chunk_size);
+                }
+                
             }
 
             // CE N'EST PLUS UN PROBLEME : au niveau de l'écriture : tout le bloc n'est pas enregistré
@@ -354,7 +400,7 @@ void save_deduplicated_file(const char *filename_output, FILE *source, Chunk *ch
     fclose(output);
 }
 
-void undeduplicate_fileV2(FILE *file, Chunk **chunks, int *chunk_count) {
+void undeduplicate_fileV2(FILE *file, Chunk **chunks, int *chunk_count, const int verbose) {
     size_t chunk_size;
     int index = 0;
 
@@ -391,8 +437,11 @@ void undeduplicate_fileV2(FILE *file, Chunk **chunks, int *chunk_count) {
             (*chunks)[index].data = NULL; // Pas de données propres, c'est une référence
             memcpy((*chunks)[index].md5, md5_reference, MD5_DIGEST_LENGTH);
 
-            //printf("Chunk %d: référence au chunk %d avec MD5 ", index, referenced_index);
-            //print_md5(md5_reference);
+            if (verbose) {
+                printf("Chunk %d: référence au chunk %d avec MD5 ", index, referenced_index);
+                print_md5(md5_reference);
+            }
+            
         } else {
             // Cas d'un chunk unique
 
@@ -416,15 +465,16 @@ void undeduplicate_fileV2(FILE *file, Chunk **chunks, int *chunk_count) {
                 perror("Erreur de lecture du MD5");
                 break;
             }
-
-            /*
-            printf("Chunk %d: taille %zu, données ", index, chunk_size);
-            for (size_t i = 0; i < chunk_size; i++) {
-                printf("%02x ", ((unsigned char*)(*chunks)[index].data)[i]);
+            
+            if (verbose) {
+                printf("Chunk %d: taille %zu, données ", index, chunk_size);
+                for (size_t i = 0; i < chunk_size; i++) {
+                    printf("%02x ", ((unsigned char*)(*chunks)[index].data)[i]);
+                }
+                printf("\nMD5 : ");
+                print_md5((*chunks)[index].md5);
             }
-            printf("\nMD5 : ");
-            print_md5((*chunks)[index].md5);
-            */
+            
         }
         index++;
     }
@@ -432,7 +482,7 @@ void undeduplicate_fileV2(FILE *file, Chunk **chunks, int *chunk_count) {
     *chunk_count = index;  // Mettre à jour le compteur de chunks
 }
 
-void restore_file(const char *deduplicated_filename, const char *output_filename) {
+void restore_file(const char *deduplicated_filename, const char *output_filename, const int verbose) {
     FILE *deduplicated_file = fopen(deduplicated_filename, "rb");
     if (!deduplicated_file) {
         perror("Erreur d'ouverture du fichier dédupliqué");
@@ -444,7 +494,7 @@ void restore_file(const char *deduplicated_filename, const char *output_filename
     int chunk_count = 0;
 
     // Lire les chunks depuis le fichier dédupliqué
-    undeduplicate_fileV2(deduplicated_file, &chunks, &chunk_count);
+    undeduplicate_fileV2(deduplicated_file, &chunks, &chunk_count, verbose);
     fclose(deduplicated_file);
 
     if (chunks == NULL || chunk_count == 0) {
@@ -484,7 +534,10 @@ void restore_file(const char *deduplicated_filename, const char *output_filename
 
     fclose(output_file);
 
-    printf("Fichier restauré avec succès dans : %s\n", output_filename);
+    if (verbose) {
+        printf("Fichier restauré avec succès dans : %s\n", output_filename);
+    }
+
 }
 
 int calculate_file_md5(const char *src_path, unsigned char *md5_hash) {
@@ -521,7 +574,7 @@ int calculate_file_md5(const char *src_path, unsigned char *md5_hash) {
 }
 
 // Fonction pour ajouter un élément à une liste log_t
-void add_log_element(log_t *logs, const char *path, const unsigned char *md5, const char *date) {
+void add_log_element(log_t *logs, const char *path, const unsigned char *md5, const char *date, const int verbose) {
     if (!logs || !path || !md5 || !date) {
         fprintf(stderr, "Erreur : paramètres invalides dans add_log_element.\n");
         return;
@@ -559,11 +612,13 @@ void add_log_element(log_t *logs, const char *path, const unsigned char *md5, co
         logs->head = new_element; // Si la liste était vide, définir le head
     }
     logs->tail = new_element; // Mettre à jour la queue
-
-    printf("Ajout du %s\n", new_element->path);
+    if (verbose) {
+        printf("Ajout du %s\n", new_element->path);
+    }
+    
 }
 
-int create_directories(const char *path) {
+int create_directories(const char *path, const int verbose) {
     char temp[PATH_MAX];
     strncpy(temp, path, sizeof(temp));
     temp[sizeof(temp) - 1] = '\0';
@@ -659,8 +714,8 @@ void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *l
         }
 
         if (!existing_log) { // si c'est un nouveau fichier ou un fichier modifié
-            create_directories(dest_path); // on créé les dossiers nécessaires
-            backup_file(src_path, dest_path); // Sauvegarde le fichier
+            create_directories(dest_path, verbose); // on créé les dossiers nécessaires
+            backup_file(src_path, dest_path, verbose); // Sauvegarde le fichier
         }
 
         // Ajouter le fichier au log
@@ -672,7 +727,7 @@ void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *l
         char chemin_pour_log[PATH_MAX];
         remove_prefix_by_datetime(dest_path, chemin_pour_log);
 
-        add_log_element(logs, chemin_pour_log, md5, mtime_str);
+        add_log_element(logs, chemin_pour_log, md5, mtime_str, verbose);
     }
     closedir(dir);
 }
@@ -715,7 +770,7 @@ int compare_md5(const unsigned char *md5_1, const unsigned char *md5_2) {
 }
 
 
-void list_backups(const char *backup_dir) {
+void list_backups(const char *backup_dir, const int verbose) {
     // Ouvrir le répertoire
     DIR *dir = opendir(backup_dir);
     if (dir == NULL) {
@@ -732,13 +787,15 @@ void list_backups(const char *backup_dir) {
         }
 
         if (entry->d_type == DT_DIR) { // Si l'entrée est un dossier
-            printf("Sauvegarde trouvée : %s/%s\n", backup_dir, entry->d_name);
+            if (verbose) {
+                printf("Sauvegarde trouvée : %s/%s\n", backup_dir, entry->d_name);
+            }
         }
     }
     closedir(dir);
 }
 
-void read_binary_file(const char *filename) {
+void read_binary_file(const char *filename, const int verbose) {
     FILE *file = fopen(filename, "rb");
     if (!file) {
         perror("Erreur d'ouverture du fichier");
@@ -748,21 +805,25 @@ void read_binary_file(const char *filename) {
     unsigned char buffer[100];
     size_t bytes_read;
     
-    printf("Contenu du fichier %s :\n", filename);
-    while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
-        for (size_t i = 0; i < bytes_read; i++) {
-            printf("%02x ", buffer[i]);  // Affiche les octets en hexadécimal
+    if (verbose) {
+        printf("Contenu du fichier %s :\n", filename);
+        while ((bytes_read = fread(buffer, 1, sizeof(buffer), file)) > 0) {
+            for (size_t i = 0; i < bytes_read; i++) {
+                printf("%02x ", buffer[i]);  // Affiche les octets en hexadécimal
+            }
+            printf("\n");
         }
-        printf("\n");
     }
+    
 
     fclose(file);
 }
 
 void print_chunk_content(Chunk *chunks, int chunk_count, Md5Entry *hash_table) {
 
-    //printf("Dans le print_chunk_content \n");
-    //print_hash_table(hash_table);
+    printf("Dans le print_chunk_content \n");
+    print_hash_table(hash_table);
+    
 
     for (int i = 0; i < chunk_count; i++) {
         printf("Chunk %d:\n", i);

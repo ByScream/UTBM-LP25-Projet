@@ -110,10 +110,10 @@ int main(int argc, char *argv[]) {
 				fprintf(stderr, "Erreur : vous devez définir l'argument --dest !\n");
                 exit(EXIT_FAILURE);
 			} else {
-				restore_backup(source, dest);
+				restore_backup(source, dest, verbose);
 			}
 		} else if (list_backups_use) {
-			list_backups(list_backups_char);
+			list_backups(list_backups_char, verbose);
 		}
         return EXIT_SUCCESS;
     }
