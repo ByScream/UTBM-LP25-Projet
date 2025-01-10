@@ -105,7 +105,7 @@ void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log
 
     // Si le fichier n'existe pas, trouver le chemin le plus ancien correspondant
     if (!file_exists(cur->path)) {
-        const char *result = find_oldest_backup(logs, cur->path, cur->date, cur->md5, verbose);
+        const char *result = find_oldest_backup(logs, cur->path, cur->md5, verbose);
         if (result) {
             strncpy(src_path, result, sizeof(src_path));
             src_path[sizeof(src_path) - 1] = '\0'; // Sécurisation de la chaîne
@@ -126,7 +126,7 @@ void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log
     snprintf(output_path, sizeof(output_path), "%s%s", adjusted_restore_dir, cur->path);
 
     // Créer les répertoires nécessaires pour le chemin de destination
-    create_directories(output_path, verbose);
+    create_directories(output_path);
 
     // Restaurer le fichier
     char base_path[PATH_MAX];
@@ -139,7 +139,7 @@ void traiter_restauration_fichier(log_element *cur, const char *restore_dir, log
 }
 
 // Fonction principale pour trouver un fichier spécifique (date antérieure et md5 identique), avec l'entrée la plus ancienne respectant les critères
-const char *find_oldest_backup(log_t logs, const char *file_path, const char *target_date, const unsigned char *target_md5, const int verbose) {
+const char *find_oldest_backup(log_t logs, const char *file_path, const unsigned char *target_md5, const int verbose) {
     const char *oldest_path = NULL;
     const char *oldest_date = NULL;
 
@@ -618,7 +618,7 @@ void add_log_element(log_t *logs, const char *path, const unsigned char *md5, co
     
 }
 
-int create_directories(const char *path, const int verbose) {
+int create_directories(const char *path) {
     char temp[PATH_MAX];
     strncpy(temp, path, sizeof(temp));
     temp[sizeof(temp) - 1] = '\0';
@@ -714,7 +714,7 @@ void traiter_un_dossier(const char *source_dir, const char *backup_dir, log_t *l
         }
 
         if (!existing_log) { // si c'est un nouveau fichier ou un fichier modifié
-            create_directories(dest_path, verbose); // on créé les dossiers nécessaires
+            create_directories(dest_path); // on créé les dossiers nécessaires
             backup_file(src_path, dest_path, verbose); // Sauvegarde le fichier
         }
 
