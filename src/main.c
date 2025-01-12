@@ -46,6 +46,7 @@ int main(int argc, char *argv[]) {
 			case 'l':
                 if (optarg) {
                     strncpy(list_backups_char, optarg, sizeof(list_backups_char) - 1);
+					list_backups_use = 1;
                 } else {
                     fprintf(stderr, "Erreur : --list-backups nécessite un argument.\n");
                     exit(EXIT_FAILURE);

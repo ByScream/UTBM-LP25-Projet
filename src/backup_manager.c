@@ -787,9 +787,7 @@ void list_backups(const char *backup_dir, const int verbose) {
         }
 
         if (entry->d_type == DT_DIR) { // Si l'entrée est un dossier
-            if (verbose) {
-                printf("Sauvegarde trouvée : %s/%s\n", backup_dir, entry->d_name);
-            }
+            printf("Sauvegarde trouvée : %s/%s\n", backup_dir, entry->d_name);
         }
     }
     closedir(dir);
