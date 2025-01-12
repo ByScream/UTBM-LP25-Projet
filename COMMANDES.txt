@@ -1,0 +1,16 @@
+- Commande type de sauvegarde:
+
+./lp25_borgbackup --backup --source /home/mathis/Bureau/Salut/ --dest /home/mathis/Bureau/sauv/
+/!\ ATTENTION A BIEN METTRE LES "/" A CHAQUE FIN DE DOSSIER
+
+
+- Commande type de backup:
+
+./lp25_borgbackup --restore --source /home/mathis/Bureau/sauv/2025-01-12-19:06:42 --dest /home/mathis/Bureau/
+/!\ NE PAS METTRE DE "/" A LA FIN DU DOSSIER SOURCE
+
+
+- Commande type de list-backups:
+
+./lp25_borgbackup --list-backups /home/mathis/bureau/sauv
+/!\ NE PAS METTRE DE "/" A LA FIN DU DOSSIER
