@@ -5,9 +5,9 @@
 #include <dirent.h>
 #include "file_handler.h"
 
+// Fonction permettant de lister les fichiers présents dans un répertoire
 void list_files(const char *path){
-    /* Implémenter la logique pour lister les fichiers présents dans un répertoire
-    */
+    
     DIR *dir;
     struct dirent *entry;
 
@@ -34,10 +34,7 @@ void list_files(const char *path){
 
 // Fonction permettant de lire un élément du fichier .backup_log
 log_t read_backup_log(const char *logfile){
-    /* Implémenter la logique pour la lecture d'une ligne du fichier ".backup_log"
-    * @param: logfile - le chemin vers le fichier .backup_log
-    * @return: une structure log_t
-    */
+    
     log_t log = {0}; // Initialiser la structure log avec un debut et une fin NULL
     FILE *file = fopen(logfile, "r");
     if (!file) {
@@ -89,11 +86,11 @@ log_t read_backup_log(const char *logfile){
     return log;
 }
 
+
+// Fonction permettant d'écrire un élément log de la liste chaînée log_element dans le fichier .backup_log
 void write_log_element(log_element *elt, FILE *logfile){
-    /* Implémenter la logique pour écrire un élément log de la liste chaînée log_element dans le fichier .backup_log
-     * @param: elt - un élément log à écrire sur une ligne
-     *         logfile - le chemin du fichier .backup_log
-     */
+
+    // Vérifier les paramètres d'entrée
     if (elt == NULL || logfile == NULL) {
         return;
     }
@@ -119,10 +116,7 @@ void write_log_element(log_element *elt, FILE *logfile){
 
 // Fonction permettant de mettre à jour une ligne du fichier .backup_log
 void update_backup_log(const char *logfile, log_t *logs){
-    /* Implémenter la logique de modification d'une ligne du fichier ".bakcup_log"
-    * @param: logfile - le chemin vers le fichier .backup_log
-    *         logs - qui est la liste de toutes les lignes du fichier .backup_log sauvegardée dans une structure log_t
-    */
+    
     // Vérifier les paramètres d'entrée
     if (!logfile || !logs) {
         return;
@@ -160,6 +154,7 @@ void update_backup_log(const char *logfile, log_t *logs){
 }
 
 
+// Fonction permettant de copier un élément d'un fichier source vers un fichier déstination
 void copy_file(const char *src, const char *dest){
     FILE *source = fopen(src, "rb");
     if (!source) {
