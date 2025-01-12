@@ -175,7 +175,7 @@ const char *find_oldest_backup(log_t logs, const char *file_path, const unsigned
             }
             
 
-            if (compare_dates(prefix_date, prefix_date_file_path) < 0) {
+            if (compare_dates(prefix_date, prefix_date_file_path) <= 0) {
                 if (verbose) {
                     printf("\t\tles dates sont bonnes!\n");
                 }
